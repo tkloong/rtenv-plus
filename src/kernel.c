@@ -68,7 +68,6 @@ enum {
 	CMD_PS,
 	CMD_XXD,
 	CMD_CAT,
-	CMD_LS,
 	CMD_COUNT
 } CMD_TYPE;
 
@@ -86,8 +85,7 @@ const hcmd_entry cmd_data[CMD_COUNT] = {
 	[CMD_MAN] = {.cmd = "man", .func = show_man_page, .description = "Manual pager."},
 	[CMD_PS] = {.cmd = "ps", .func = show_task_info, .description = "List all the processes."},
 	[CMD_XXD] = {.cmd = "xxd", .func = show_xxd, .description = "Make a hexdump."},
-	[CMD_CAT] = {.cmd = "cat", .func = show_cat, .description = "Concatenate file, or standard input, to standard output."},
-	[CMD_LS] = {.cmd = "ls", .func = show_ls, .description = "list all directories and files at current path."}
+	[CMD_CAT] = {.cmd = "cat", .func = show_cat, .description = "Concatenate file, or standard input, to standard output."}
 };
 
 /* Structure for environment variables. */
@@ -129,7 +127,7 @@ void serialin(USART_TypeDef* uart, unsigned int intr)
 	mkfifo("/dev/tty0/in", 0);
 	fd = open("/dev/tty0/in", 0);
 
-    USART_ITConfig(USART2, USART_IT_RXNE, ENABLE);
+	USART_ITConfig(USART2, USART_IT_RXNE, ENABLE);
 
 	while (1) {
 		interrupt_wait(intr);
@@ -473,7 +471,7 @@ void show_task_info(int argc, char* argv[])
 
 		write(fdout, &task_info_pid , 2);
 		write_blank(3);
-			write(fdout, &task_info_status , 2);
+		write(fdout, &task_info_status , 2);
 		write_blank(5);
 		write(fdout, &task_info_priority , 3);
 
@@ -588,20 +586,20 @@ void show_history(int argc, char *argv[])
 
 char hexof(int dec)
 {
-    const char hextab[] = "0123456789abcdef";
+	const char hextab[] = "0123456789abcdef";
 
-    if (dec < 0 || dec > 15)
-        return -1;
+	if (dec < 0 || dec > 15)
+		return -1;
 
-    return hextab[dec];
+	return hextab[dec];
 }
 
 char char_filter(char c, char fallback)
 {
-    if (c < 0x20 || c > 0x7E)
-        return fallback;
+	if (c < 0x20 || c > 0x7E)
+		return fallback;
 
-    return c;
+	return c;
 }
 
 #define XXD_WIDTH 0x10
@@ -609,104 +607,105 @@ char char_filter(char c, char fallback)
 //xxd
 void show_xxd(int argc, char *argv[])
 {
-    int readfd = -1;
-    char buf[XXD_WIDTH];
-    char ch;
-    char chout[2] = {0};
-    int pos = 0;
-    int size;
-    int i;
+	int readfd = -1;
+	char buf[XXD_WIDTH];
+	char ch;
+	char chout[2] = {0};
+	int pos = 0;
+	int size;
+	int i;
 
-    if (argc == 1) { /* fallback to stdin */
-        readfd = fdin;
-    }
-    else { /* open file of argv[1] */
-        readfd = open(argv[1], 0);
+	if (argc == 1) { /* fallback to stdin */
+		readfd = fdin;
+	}
+	else { /* open file of argv[1] */
+		readfd = open(argv[1], 0);
 
-        if (readfd < 0) { /* Open error */
-            write(fdout, "xxd: ", 6);
-            write(fdout, argv[1], strlen(argv[1]) + 1);
-            write(fdout, ": No such file or directory\r\n", 31);
-            return;
-        }
-    }
+		if (readfd < 0) { /* Open error */
+			write(fdout, "xxd: ", 6);
+			write(fdout, argv[1], strlen(argv[1]) + 1);
+			write(fdout, ": No such file or directory\r\n", 31);
+			return;
+		}
+	}
 
-    lseek(readfd, 0, SEEK_SET);
-    while ((size = read(readfd, &ch, sizeof(ch))) && size != -1) {
-        if (ch != -1 && ch != 0x04) { /* has something read */
+	lseek(readfd, 0, SEEK_SET);
+	while ((size = read(readfd, &ch, sizeof(ch))) && size != -1) {
+		if (ch != -1 && ch != 0x04) { /* has something read */
 
-            if (pos % XXD_WIDTH == 0) { /* new line, print address */
-                for (i = sizeof(pos) * 8 - 4; i >= 0; i -= 4) {
-                    chout[0] = hexof((pos >> i) & 0xF);
-                    write(fdout, chout, 2);
-                }
+			if (pos % XXD_WIDTH == 0) { /* new line, print address */
+				for (i = sizeof(pos) * 8 - 4; i >= 0; i -= 4) {
+					chout[0] = hexof((pos >> i) & 0xF);
+					write(fdout, chout, 2);
+				}
 
-                write(fdout, ":", 2);
-            }
+				write(fdout, ":", 2);
+			}
 
-            if (pos % 2 == 0) { /* whitespace for each 2 bytes */
-                write(fdout, " ", 2);
-            }
+			if (pos % 2 == 0) { /* whitespace for each 2 bytes */
+				write(fdout, " ", 2);
+			}
 
-            /* higher bits */
-            chout[0] = hexof(ch >> 4);
-            write(fdout, chout, 2);
+			/* higher bits */
+			chout[0] = hexof(ch >> 4);
+			write(fdout, chout, 2);
 
-            /* lower bits*/
-            chout[0] = hexof(ch & 0xF);
-            write(fdout, chout, 2);
+			/* lower bits*/
+			chout[0] = hexof(ch & 0xF);
+			write(fdout, chout, 2);
 
-            /* store in buffer */
-            buf[pos % XXD_WIDTH] = ch;
+			/* store in buffer */
+			buf[pos % XXD_WIDTH] = ch;
 
-            pos++;
+			pos++;
 
-            if (pos % XXD_WIDTH == 0) { /* end of line */
-                write(fdout, "  ", 3);
+			if (pos % XXD_WIDTH == 0) { /* end of line */
+				write(fdout, "  ", 3);
 
-                for (i = 0; i < XXD_WIDTH; i++) {
-                    chout[0] = char_filter(buf[i], '.');
-                    write(fdout, chout, 2);
-                }
+				for (i = 0; i < XXD_WIDTH; i++) {
+					chout[0] = char_filter(buf[i], '.');
+					write(fdout, chout, 2);
+				}
 
-                write(fdout, "\r\n", 3);
-            }
-        }
-        else { /* EOF */
-            break;
-        }
-    }
+				write(fdout, "\r\n", 3);
+			}
+		}
+		else { /* EOF */
+			break;
+		}
+	}
 
-    if (pos % XXD_WIDTH != 0) { /* rest */
-        /* align */
-        for (i = pos % XXD_WIDTH; i < XXD_WIDTH; i++) {
-            if (i % 2 == 0) { /* whitespace for each 2 bytes */
-                write(fdout, " ", 2);
-            }
-            write(fdout, "  ", 3);
-        }
+	if (pos % XXD_WIDTH != 0) { /* rest */
+		/* align */
+		for (i = pos % XXD_WIDTH; i < XXD_WIDTH; i++) {
+			if (i % 2 == 0) { /* whitespace for each 2 bytes */
+				write(fdout, " ", 2);
+			}
+			write(fdout, "  ", 3);
+		}
 
-        write(fdout, "  ", 3);
+		write(fdout, "  ", 3);
 
-        for (i = 0; i < pos % XXD_WIDTH; i++) {
-            chout[0] = char_filter(buf[i], '.');
-            write(fdout, chout, 2);
-        }
+		for (i = 0; i < pos % XXD_WIDTH; i++) {
+			chout[0] = char_filter(buf[i], '.');
+			write(fdout, chout, 2);
+		}
 
-        write(fdout, "\r\n", 3);
-    }
+		write(fdout, "\r\n", 3);
+	}
 }
 
 //cat
 void show_cat (int argc, char* argv[])
 {
-    int readfd = -1;
+	int readfd = -1;
 	char temp[2] = {0};
 	char buf[256] = {0};
-    char ch;
+	char ch;
 	int size = 0;
+	struct romfs_entry entry;
 
-    if (argc == 1) { /* fallback to stdin */
+	if (argc == 1) { /* fallback to stdin */
 		do {
 			read(fdin, &ch, sizeof(ch));
 			if (ch == '\r') ch = '\n';
@@ -724,26 +723,27 @@ void show_cat (int argc, char* argv[])
 		readfd = open(argv[1], 0);
 
 		if (readfd < 0) { /* Open error */
-            write(fdout, "cat: ", 6);
-            write(fdout, argv[1], strlen(argv[1]) + 1);
-            write(fdout, ": No such file or directory\r\n", 31);
-            return;
-        }
-    }
-
-    lseek(readfd, 0, SEEK_SET);
-    while ((size = read(readfd, &ch, sizeof(ch))) && size != -1) {
-        if (ch != -1 && ch != 0x04) { /* has something read */
-			temp[0] = ch;
-            write(fdout, temp, 2);
+			write(fdout, "cat: ", 6);
+			write(fdout, argv[1], strlen(argv[1]) + 1);
+			write(fdout, ": No such file or directory\r\n", 31);
+			return;
 		}
 	}
-}
 
-//ls
-void show_ls (int argc, char *argv[])
-{
-
+	lseek(readfd, 0, SEEK_SET);
+	read(readfd, &entry, sizeof(entry));
+	if (entry.isdir) {
+		write(fdout, "cat: ", 6);
+		write(fdout, argv[1], strlen(argv[1]) + 1);
+		write(fdout, ": It is a directory\r\n", 31);
+		return;
+	}
+	while ((size = read(readfd, &ch, sizeof(ch))) && size != -1) {
+		if (ch != -1 && ch != 0x04) { // has something read 
+			temp[0] = ch;
+			write(fdout, temp, 2);
+		}
+	}
 }
 
 void first()
@@ -876,44 +876,46 @@ int main()
 			break;
 		case 0x3: /* write */
 			/* Check fd is valid */
-			int fd = tasks[current_task].stack->r0;
-			if (fd < FILE_LIMIT && files[fd]) {
-				/* Prepare file request, store reference in r0 */
-				requests[current_task].task = &tasks[current_task];
-				requests[current_task].buf =
-					(void*)tasks[current_task].stack->r1;
-				requests[current_task].size = tasks[current_task].stack->r2;
-				tasks[current_task].stack->r0 =
-					(int)&requests[current_task];
+			{
+				int fd = tasks[current_task].stack->r0;
+				if (fd < FILE_LIMIT && files[fd]) {
+					/* Prepare file request, store reference in r0 */
+					requests[current_task].task = &tasks[current_task];
+					requests[current_task].buf =
+						(void*)tasks[current_task].stack->r1;
+					requests[current_task].size = tasks[current_task].stack->r2;
+					tasks[current_task].stack->r0 =
+						(int)&requests[current_task];
 
-				/* Write */
-				file_write(files[fd], &requests[current_task],
-						&event_monitor);
-			}
-			else {
-				tasks[current_task].stack->r0 = -1;
-			}
-			break;
+					/* Write */
+					file_write(files[fd], &requests[current_task],
+							&event_monitor);
+				}
+				else {
+					tasks[current_task].stack->r0 = -1;
+				}
+			} break;
 		case 0x4: /* read */
 			/* Check fd is valid */
-			int fd = tasks[current_task].stack->r0;
-			if (fd < FILE_LIMIT && files[fd]) {
-				/* Prepare file request, store reference in r0 */
-				requests[current_task].task = &tasks[current_task];
-				requests[current_task].buf =
-					(void*)tasks[current_task].stack->r1;
-				requests[current_task].size = tasks[current_task].stack->r2;
-				tasks[current_task].stack->r0 =
-					(int)&requests[current_task];
+			{
+				int fd = tasks[current_task].stack->r0;
+				if (fd < FILE_LIMIT && files[fd]) {
+					/* Prepare file request, store reference in r0 */
+					requests[current_task].task = &tasks[current_task];
+					requests[current_task].buf =
+						(void*)tasks[current_task].stack->r1;
+					requests[current_task].size = tasks[current_task].stack->r2;
+					tasks[current_task].stack->r0 =
+						(int)&requests[current_task];
 
-				/* Read */
-				file_read(files[fd], &requests[current_task],
-						&event_monitor);
-			}
-			else {
-				tasks[current_task].stack->r0 = -1;
-			}
-			break;
+					/* Read */
+					file_read(files[fd], &requests[current_task],
+							&event_monitor);
+				}
+				else {
+					tasks[current_task].stack->r0 = -1;
+				}
+			} break;
 		case 0x5: /* interrupt_wait */
 			/* Enable interrupt */
 			NVIC_EnableIRQ(tasks[current_task].stack->r0);
